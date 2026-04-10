@@ -37,7 +37,14 @@ To set up which MDAO simulations to run in parallel, use the `COMBINATIONS = [..
   - "C" for location C
  
 For the definition of the locations, please see the following paper:
-"
+"Data-driven metocean conditions classification to unlock standardisation of FOWTs", K. Patryniak, M. Collu, A. C. Pillai, Torque 2026, Bruges, Belgium.
+
+- var3 indicates the type of MDAO to be carried out:
+  - "towr" to optimise ONLY the tower
+  - "ptfm" to optimise ONLY the platform
+  - "tower_ptfm" to optimise both the tower and the platform
+ 
+NB The "pftm" MDAO should be done after the "towr" one, since the "pftm" takes the optimised tower as starting point.
 
 ```
 COMBINATIONS = [
