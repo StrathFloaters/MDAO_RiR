@@ -1,0 +1,160 @@
+general: # Look at https://weis.readthedocs.io/en/latest/inputs/analysis_schema.html
+    folder_output: outputs # NB Do not change outputs/ to outputs\, since it gives issues with visualization
+    fname_output: refturb_output
+
+
+merit_figure: tower_mass  # Merit figure of the optimization problem. The options are 'AEP' - 'LCOE' - 'Cp' - 'blade_mass' - 'blade_tip_deflection' - platform_mass - structural_mass
+
+design_variables:
+    tower:
+        outer_diameter:
+            flag: True
+            lower_bound: 6.45
+            upper_bound: 10.5
+        layer_thickness:
+            flag: True
+            lower_bound: 4.e-3
+            upper_bound: 2.e-1
+    floating: # THIS IS FOR IEA 15MW with rectangular lower pontoons
+        joints:
+            z_coordinate: # DV: draft
+                - names: [main_keel, col1_keel, col2_keel, col3_keel]
+                  lower_bound: -22.0    # -10% w.r.t. original 20m, in order not to change too much hydromechanics coeff.s
+                  upper_bound: -18.0    # +10% w.r.t. original 20m
+                  flag: True
+            r_coordinate: # DV: column spacing
+                - names: [col1_keel, col1_freeboard, col2_keel, col2_freeboard, col3_keel, col3_freeboard]
+                  lower_bound: 46.5  # -10% w.r.t. original 51.75m, in order not to change too much hydromechanics coeff.s
+                  upper_bound: 57.0  # +10%
+                  flag: True
+        members:
+            groups:
+                - names: [column1,column2,column3]
+                  flag: True
+                  diameter: # Outer columns diameter
+                        lower_bound: 11.25  # -10% w.r.t. original 12.5m, in order not to change too much hydromechanics coeff.s
+                        upper_bound: 13.75  # +10%
+                        constant: True # Should the diameters be constant along the height of the column? Initially FALSE!
+                # thickness:
+                #     lower_bound: 0.05
+                #     upper_bound: 0.25
+                #     constant: True
+
+constraints:
+    tower:
+        height_constraint:
+            flag: False
+            lower_bound: 1.e-2
+            upper_bound: 1.e-2
+        stress:
+            flag: True
+        global_buckling:
+            flag: True
+            # upper_bound: 1 By default, not necessary (allowed) to add
+        shell_buckling:
+            flag: True
+        d_to_t:
+            flag: True
+            lower_bound: 100.0
+            upper_bound: 1100.0
+        taper:
+            flag: True
+            lower_bound: 0.2
+        slope:
+            flag: True
+        frequency_1: # Targeted range for tower first frequency constraint. Since first and second frequencies are generally the same for the tower, this usually governs the second frequency as well (both fore-aft and side-side first frequency)
+          flag: True
+          lower_bound: 0.45
+          upper_bound: 0.50 # Specify upper bound as well, otherwise default is 0.1, and therefore solution may seek to have a solution with freq less than 0.1
+    floating:
+        operational_heel:
+            # flag: True --> This cannot be flagged
+            upper_bound: 0.174533 # 10 deg, from DNV-ST-0289
+        survival_heel:
+            # flag: True --> This cannot be flagged
+            upper_bound: 0.261799 # 15 deg, changed from 0.17453292519943295, that is 10 deg
+        metacentric_height:
+            flag: False
+            lower_bound: 15.0
+        pitch_period:
+            flag: False
+            lower_bound: 20. # +/- 10%
+            upper_bound: 80.
+        heave_period:
+            flag: False
+            lower_bound: 16. # +/- 10%
+            upper_bound: 80.
+        fixed_ballast_capacity:
+            flag: True # Ensures that there is sufficient volume to hold the specified fixed (permanent) ballast
+        variable_ballast_capacity: # Ensures that there is sufficient volume to hold the needed water (variable) ballast to achieve neutral buoyancy
+            flag: True 
+        buoyancy: # Ensures that the platform displacement is sufficient to support the weight of the turbine system
+            flag: False # Enabling this seems to give a problem in terms of static angle when only 6.1 is enabled --> large negative angles, and RAFT crashing due to stiffness matrix with negative value
+        stress: # Enforce a maximum allowable von Mises stress relative to the material yield stress with safety factor of gammaf * gammam * gamma_n
+            flag: False
+        global_buckling: # Enforce a global buckling limit using Eurocode checks with safety factor of gammaf * gammab
+            flag: False
+        shell_buckling: # Enforce a shell buckling limit using Eurocode checks with safety factor of gammaf * gammab
+            flag: False
+        mooring_heel:
+            flag: False
+        freeboard_margin:   # Ensures that the freeboard (top points of structure) of floating platform stays above the waterline at the survival heel offset
+            flag: True
+        draft_margin:   # Ensures that the mooring line attachment depth (fairlead) is sufficiently beneath the water line that it is not exposed at the significant wave height
+            flag: True
+        fairlead_depth: # keep fairlead above bottom trough of largest wave
+            flag: True
+        Max_Offset: # Maximum combined surge/sway offset. Can be computed in both RAFT and OpenFAST. The higher fidelity option will be used when active.
+          flag: True
+          max: 30.       
+    control:
+        rotor_overspeed: # (Maximum rotor speed / rated rotor speed) - 1. Can be computed in both RAFT and OpenFAST. The higher fidelity option will be used when active.
+            flag: False
+            min: 0.0
+            max: 0.25
+        Max_PtfmPitch: # Maximum platform pitch displacement over all cases. Can be computed in both RAFT and OpenFAST. The higher fidelity option will be used when active.
+            flag: True
+            max: 7 # 4.5 for 5.5 Operational, 14 for 15 survival
+        Std_PtfmPitch: # Maximum platform pitch standard deviation over all cases. Can be computed in both RAFT and OpenFAST. The higher fidelity option will be used when active.
+            flag: False
+            max: 2  # Same as IEA-15MW with same DLCs
+        nacelle_acceleration: # Maximum Nacelle IMU accelleration magnitude, i.e., sqrt(NcIMUTAxs^2 + NcIMUTAys^2 + NcIMUTAzs^2). Can be computed in both RAFT and OpenFAST. The higher fidelity option will be used when active.
+            flag: True
+            max: 2.94     #[m/s^2] 2.94 corresponds to 0.3g DNV-ST-0286 5.5.1 max. acceleration at tower top during non-operational load cases e.g. DLC 6.1, 6.2: 0.6g.
+        Max_TwrBsMyt:
+            flag: False
+            max: 10.e6 # TBD
+        DEL_TwrBsMyt:
+            flag: False
+            max: 10.e6 # TBD
+        avg_pitch_travel: # Average pitch travel per second (Q: is this for the rotor blades?)
+            flag: False
+            max: 29. # TBD
+        pitch_duty_cycle: # Number of pitch direction changes per second of simulation
+            flag: False
+            max: 29. # TBD
+    damage:
+        tower_base: # Tower base damage constraint
+            flag: False
+            max: 30 # Value must be greater or equal to 1e-05 and lesser or equal to 30.0
+            log: True # Use the logarithm of damage as the constraint.
+    openfast_failed: # Constraint design to one where OpenFAST simulations don't fail_value
+        flag: False
+                
+driver:
+    optimization:
+        flag: True           # Flag to enable optimization
+        solver: LN_COBYLA         # Optimization solver. Other options are 'SLSQP' - 'CONMIN'
+        rhobeg: 0.05
+        tol: 1e-3            # Optimality tolerance 1.e-6 in tower_design_analysis.yaml. Set to 0.001 since for a tower of around 1000 t, this corresponds to ~1t tolerance, 0.1%
+        max_iter: 600         # Maximum number of iterations (SLSQP) - 100 iterations too little
+        catol: 1e-4        # Tolerance (absolute) for constraint violations. Default was 1e-6
+        # max_major_iter: 10  # Maximum number of major design iterations (SNOPT)
+        # max_minor_iter: 100 # Maximum number of minor design iterations (SNOPT)
+        # step_size: 1.e-6    # Step size for finite differencing (from tower_design_analysis.yaml)
+        # form: forward       # Finite differencing mode, either forward or central (tower_design_analysis.yaml)
+
+recorder:
+    flag: True              # Flag to activate OpenMDAO recorder
+    file_name: log_opt.sql  # Name of OpenMDAO recorder
+    includes: ['*raft*','*floating*','*platform*','*tower*']
