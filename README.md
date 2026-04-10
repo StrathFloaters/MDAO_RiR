@@ -135,6 +135,6 @@ runs = {
 
 ## Step 5: Writing the main table comparing the results of the iterative optimisation (i.e., tower, then platform) VS the coupled iteration (tower AND platform)(MAIN_export_final_iteration_table 2.py)
 
-
+This script takes the values of the objective, design variables, and constraints at the latest iteration of the "towr" and "tower_ptfm", and also perform a difference (absolute and in %age), saving the results in a spreadsheet titled `weis_final_iteration_comparison.xlsx`
 
 
